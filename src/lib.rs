@@ -22,12 +22,15 @@ fn bresenham_circle(cx: u32, cy: u32) -> Vec<Coords> {
 }
 
 pub fn fast(image: &image::GrayImage) -> Vec<Coords> {
-    let threshold = 30;
+    let threshold = 20;
     let n = 12;
-    let mut key_points: Vec<Coords> = Vec::new();
-    for y in 3..image.height() - 3 {
-        for x in 3..image.width() - 3 {
-            let ip = image.get_pixel(x, y).0[0] as i16;
+    image
+        .enumerate_pixels()
+        .flat_map(|(x, y, p)| {
+            if x < 3 || x >= image.width() - 3 || y < 3 || y >= image.height() - 3 {
+                return None;
+            }
+            let p = p.0[0] as i16;
             let surrounding = bresenham_circle(x, y);
             let interest: Vec<_> = [
                 surrounding[0],
@@ -39,16 +42,16 @@ pub fn fast(image: &image::GrayImage) -> Vec<Coords> {
             .map(|(x, y)| image.get_pixel(*x, *y).0[0] as i16)
             .collect();
             if n >= 12
-                && interest[0] > ip - threshold
-                && interest[0] < ip + threshold
-                && interest[2] > ip - threshold
-                && interest[2] < ip + threshold
-                || interest[1] > ip - threshold
-                    && interest[1] < ip + threshold
-                    && interest[3] > ip - threshold
-                    && interest[3] < ip + threshold
+                && interest[0] > p - threshold
+                && interest[0] < p + threshold
+                && interest[2] > p - threshold
+                && interest[2] < p + threshold
+                || interest[1] > p - threshold
+                    && interest[1] < p + threshold
+                    && interest[3] > p - threshold
+                    && interest[3] < p + threshold
             {
-                continue;
+                return None;
             }
             let surrounding: Vec<_> = surrounding
                 .iter()
@@ -57,10 +60,10 @@ pub fn fast(image: &image::GrayImage) -> Vec<Coords> {
             let mut brighter = 0;
             let mut darker = 0;
             for &vs in &surrounding {
-                if vs > ip + threshold {
+                if vs > p + threshold {
                     brighter += 1;
                     darker = 0;
-                } else if vs < ip - threshold {
+                } else if vs < p - threshold {
                     darker += 1;
                     brighter = 0;
                 } else {
@@ -68,16 +71,12 @@ pub fn fast(image: &image::GrayImage) -> Vec<Coords> {
                     darker = 0;
                 }
                 if brighter == n || darker == n {
-                    // let v: u16 = surrounding
-                    //     .iter()
-                    //     .map(|&v| (ip as i16 - v as i16).abs() as u16)
-                    //     .sum();
-                    key_points.push((x, y));
+                    return Some((x, y));
                 }
             }
-        }
-    }
-    key_points
+            return None;
+        })
+        .collect()
 }
 
 #[cfg(test)]

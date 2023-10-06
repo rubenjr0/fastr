@@ -14,23 +14,13 @@ fn main() -> Result<()> {
     ));
 
     let mut threaded = CallbackCamera::new(camera_idx, format, move |buffer| {
-        let mut image = buffer.decode_image::<LumaFormat>().unwrap();
-        visr::equalize_mut(&mut image);
-        let points: Vec<_> = fastr::fast(&image)
-            .into_iter()
-            .map(|kp| rerun::components::Point2D::new(kp.0 as f32, kp.1 as f32))
-            .collect();
-        let t = rerun::components::Tensor::from_image(image).expect("msg");
-        rerun::MsgSender::new("image/equalized")
-            .with_component(&[t])
-            .expect("")
-            .send(&recording)
-            .expect("");
-        rerun::MsgSender::new("image/keypoints")
-            .with_component(&points)
-            .expect("")
-            .send(&recording)
-            .expect("");
+        let image = buffer.decode_image::<LumaFormat>().unwrap();
+        let points = fastr::fast(&image);
+        let points = rerun::Points2D::new(points.into_iter().map(|(x, y)| (x as f32, y as f32)));
+        recording
+            .log("luma", &rerun::Image::try_from(image).unwrap())
+            .unwrap();
+        recording.log("luma/keypoints", &points).unwrap();
     })?;
     threaded.open_stream()?;
     loop {
